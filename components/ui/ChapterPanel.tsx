@@ -4,27 +4,22 @@ import { motion } from "framer-motion";
 import { chaptersContent } from "@/lib/data";
 import { X, Play } from "lucide-react";
 
-// On définit ce que le composant attend comme données
 interface ChapterPanelProps {
   chapterId: string | null;
   onClose: () => void;
 }
 
 export default function ChapterPanel({ chapterId, onClose }: ChapterPanelProps) {
-  // On récupère le contenu directement via l'ID reçu du parent
-  const content = chapterId ? chaptersContent[chapterId] : null;
+  // CORRECTION TYPESCRIPT :
+  // On dit explicitement à TS : "Fais-moi confiance, chapterId est bien une clé valide"
+  // On utilise 'as keyof typeof' pour rassurer le compilateur
+  const content = (chapterId && chaptersContent[chapterId as keyof typeof chaptersContent]) || null;
 
-  // 1. Cas d'erreur : On a un ID mais pas de contenu associé
-  if (chapterId && !content) {
-     return <div className="p-10 text-white">Erreur: Contenu introuvable pour {chapterId}</div>;
-  }
-
-  // 2. Cas de sortie : Pas d'ID ou pas de contenu (Sécurité TypeScript renforcée ici)
+  // Sécurité absolue : si pas de contenu, on ne rend rien
   if (!chapterId || !content) {
     return null;
   }
 
-  // À partir d'ici, TypeScript sait que "content" existe forcément à 100%
   return (
     <div className="h-full flex flex-col relative bg-[#121212] border-l border-[#457B9D]/20 shadow-2xl overflow-hidden">
       
@@ -43,7 +38,6 @@ export default function ChapterPanel({ chapterId, onClose }: ChapterPanelProps) 
         transition={{ delay: 0.3 }}
         className="flex flex-col h-full p-8 md:p-12 overflow-y-auto"
       >
-        {/* Métadonnées */}
         <div className="mb-4">
             <span className="text-[#457B9D] text-xs font-bold tracking-[0.2em] uppercase">
               Dossier Documentaire
@@ -51,12 +45,10 @@ export default function ChapterPanel({ chapterId, onClose }: ChapterPanelProps) 
             <p className="text-[#457B9D]/60 text-xs mt-1">De Anonyme, 02-11-2025</p>
         </div>
 
-        {/* Titre style "Outline" */}
         <h1 className="text-4xl md:text-5xl font-black mb-8 text-outline tracking-wider uppercase leading-tight">
           {content.title}
         </h1>
 
-        {/* Texte */}
         <div className="prose prose-invert prose-lg text-[#F1FAEE]/80 font-serif leading-relaxed text-justify mb-10">
           <p>{content.text}</p>
           <p>
@@ -68,7 +60,6 @@ export default function ChapterPanel({ chapterId, onClose }: ChapterPanelProps) 
           </p>
         </div>
 
-        {/* Footer avec Player Audio */}
         <div className="mt-auto pt-6 border-t border-[#457B9D]/20 bg-[#121212]">
           <div className="flex items-center gap-4">
             <button className="w-12 h-12 rounded-full border border-[#E67E22] text-[#E67E22] flex items-center justify-center hover:bg-[#E67E22] hover:text-white transition-all">
@@ -77,7 +68,6 @@ export default function ChapterPanel({ chapterId, onClose }: ChapterPanelProps) 
             
             <div className="flex-1 flex flex-col gap-1">
               <span className="text-xs text-[#E67E22] uppercase tracking-wider">Témoignage Audio</span>
-              {/* Animation barres audio */}
               <div className="flex items-end gap-[2px] h-6 opacity-80">
                 {[...Array(30)].map((_, i) => (
                   <div 
@@ -85,7 +75,7 @@ export default function ChapterPanel({ chapterId, onClose }: ChapterPanelProps) 
                     className="w-1 bg-[#457B9D] rounded-t-sm animate-pulse"
                     style={{ 
                       height: `${Math.random() * 100}%`,
-                      animationDelay: `${i * 0.05}s` // Décalage pour l'effet de vague
+                      animationDelay: `${i * 0.05}s`
                     }} 
                   />
                 ))}
