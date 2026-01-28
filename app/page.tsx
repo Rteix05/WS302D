@@ -39,8 +39,6 @@ export default function Home() {
   };
 
   const handleClose = () => {
-    // C'EST ICI QUE LA MAGIE OPÈRE :
-    // Quand on ferme le panneau, on débloque les chapitres suivants liés à celui qu'on vient de lire.
     if (selectedChapter) {
       unlockNext(selectedChapter);
     }
@@ -53,51 +51,52 @@ export default function Home() {
 
   return (
     <>
-      {/* Landing Page */}
+      {/* 1. Landing Page (Au-dessus de tout) */}
       <AnimatePresence>
         {!hasStarted && <LandingPage onStart={handleStartExperience} />}
       </AnimatePresence>
 
-      {/* Main Experience - Visible seulement après le démarrage */}
-      <main
+      {/* 2. Main Experience (Toujours présente, mais floue au début) */}
+      <motion.main
         className="fixed inset-0 w-screen h-screen overflow-hidden bg-[#121212]"
-        style={{ display: hasStarted ? "block" : "none" }}
+        // Animation du flou et de la lumière
+        initial={{ filter: "blur(10px) brightness(0.5)" }}
+        animate={{ 
+          filter: hasStarted ? "blur(0px) brightness(1)" : "blur(10px) brightness(0.5)" 
+        }}
+        transition={{ duration: 1.5, ease: "easeInOut" }}
       >
-        {/* 1. Fond Étoilé */}
+        {/* Fond Étoilé */}
         <div className="absolute inset-0 z-0 pointer-events-none">
           <StarBackground />
         </div>
 
-        {/* 2. La Constellation - Toujours en plein écran */}
+        {/* La Constellation */}
         <div
-          className="absolute inset-0 z-50"
-          style={{ pointerEvents: selectedChapter ? "none" : "auto" }}
+          className="absolute inset-0 z-10"
+          style={{ pointerEvents: hasStarted && !selectedChapter ? "auto" : "none" }}
         >
           <ConstellationGraph
             onNodeSelect={handleNodeSelect}
             selectedNodeId={selectedChapter}
           />
 
-          {/* Titre (disparaît si un chapitre est ouvert) */}
-          <motion.div
-            className="absolute top-10 left-10 pointer-events-none z-60"
-            initial={{ opacity: 1, x: 0 }}
-            animate={{
-              opacity: selectedChapter ? 0 : 1,
-              x: selectedChapter ? -50 : 0,
-            }}
-            transition={{ duration: 0.5 }}
-          >
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tighter text-[#F1FAEE] drop-shadow-lg">
-              ÊTRE <span className="text-[#E67E22]">JEUNE</span>
-            </h1>
-            <p className="text-[#457B9D] mt-2 text-lg tracking-widest uppercase">
-              Horizons Suspendus
-            </p>
-          </motion.div>
+          {/* Titre Interne (N'apparaît que quand on a commencé) */}
+          {hasStarted && (
+            <motion.div
+              className="absolute top-10 left-10 pointer-events-none z-60"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{
+                opacity: selectedChapter ? 0 : 1,
+                x: selectedChapter ? -50 : 0,
+              }}
+              transition={{ duration: 0.8, delay: 0.5 }} // Petit délai pour laisser la transition finir
+            >
+            </motion.div>
+          )}
         </div>
 
-        {/* 3. Le Panneau - Popup qui glisse de la droite */}
+        {/* Le Panneau Latéral */}
         <AnimatePresence>
           {selectedChapter && (
             <motion.div
@@ -112,7 +111,7 @@ export default function Home() {
                 zIndex: 100,
                 backgroundColor: "#121212",
               }}
-              className="shadow-2xl"
+              className="shadow-2xl border-l border-[#457B9D]/20"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
@@ -122,7 +121,7 @@ export default function Home() {
             </motion.div>
           )}
         </AnimatePresence>
-      </main>
+      </motion.main>
     </>
   );
 }
