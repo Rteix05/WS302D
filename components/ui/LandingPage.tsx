@@ -135,7 +135,6 @@ export default function LandingPage({ onStart }: LandingPageProps) {
               className="text-transparent ml-2"
               style={{
                 WebkitTextStroke: "2px #E67E22",
-                textStroke: "2px #E67E22",
               }}
             >
               SUSPENDUS
