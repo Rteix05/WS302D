@@ -114,12 +114,11 @@ export default function Home() {
                 top: 0,
                 right: 0,
                 height: "100%",
-                width: "65vw",
                 maxWidth: "1000px",
                 zIndex: 100,
                 backgroundColor: "#121212",
               }}
-              className="shadow-2xl border-l border-[#457B9D]/20"
+              className="w-full md:w-[65vw] shadow-2xl border-l border-[#457B9D]/20"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}

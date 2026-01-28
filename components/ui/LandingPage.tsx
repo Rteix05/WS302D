@@ -52,7 +52,7 @@ const FloatingNode = ({
       },
     }}
     style={{ top, left }}
-    className={`absolute z-20 w-40 aspect-square rounded-full flex items-center justify-center text-center backdrop-blur-md border border-white/30 text-[#F1FAEE] text-sm font-medium tracking-wide pointer-events-none select-none p-6
+    className={`absolute z-20 w-24 md:w-32 lg:w-40 aspect-square rounded-full flex items-center justify-center text-center backdrop-blur-md border border-white/30 text-[#F1FAEE] text-[10px] md:text-xs lg:text-sm font-medium tracking-wide pointer-events-none select-none p-2 md:p-4 lg:p-6
     ${
       color === "red"
         ? "shadow-[0_0_20px_rgba(239,68,68,0.4),inset_0_0_10px_rgba(239,68,68,0.2)]"
@@ -150,7 +150,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
         >
           {/* MESSAGE CASQUE */}
           <div
-            className="flex items-center gap-3 px-6 py-2 rounded-full mb-20" // Espace augmenté avant le bouton
+            className="flex items-center gap-3 px-6 py-2 rounded-full mb-10 md:mb-20" // Espace augmenté avant le bouton
             style={glassStyle}
           >
             <Headphones size={16} className="text-white/80 animate-pulse" />
@@ -174,12 +174,12 @@ export default function LandingPage({ onStart }: LandingPageProps) {
               backdropFilter: "blur(10px)",
               border: "1px solid rgba(255, 255, 255, 0.5)", // Bordure semi-opaque
             }}
-            className="px-14 py-6 rounded-full text-white text-xl font-sans font-bold uppercase tracking-[0.25em] cursor-pointer transition-all shadow-[0_0_30px_rgba(0,0,0,0.5)]"
+            className="px-8 py-4 md:px-14 md:py-6 rounded-full text-white text-base md:text-xl font-sans font-bold uppercase tracking-[0.25em] cursor-pointer transition-all shadow-[0_0_30px_rgba(0,0,0,0.5)]"
           >
             Entrer dans la constellation
           </motion.button>
-
-          <p className="max-w-xl text-white/80 text-base font-serif italic mt-10 text-center drop-shadow-md">
+          
+          <p className="max-w-xl text-white/80 text-sm md:text-base font-serif italic mt-5 md:mt-10 text-center drop-shadow-md px-4">
             "Qu'est-ce que signifie se construire quand l'avenir est flou ?"
           </p>
         </motion.div>

@@ -67,3 +67,8 @@ h6 {
   -webkit-text-stroke: 1px #f1faee; /* Contour Ghost White */
   color: transparent;
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

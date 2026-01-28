@@ -17,36 +17,13 @@ export function ProgressionProvider({ children }: { children: React.ReactNode })
   const [visitedNodes, setVisitedNodes] = useState<string[]>([]);
   const [unlockedNodes, setUnlockedNodes] = useState<string[]>(['les-racines']);
 
-  useEffect(() => {
-    // 1. Chargement Visites
-    try {
-      const savedVisited = localStorage.getItem('webdoc-visited');
-      if (savedVisited) setVisitedNodes(JSON.parse(savedVisited));
-    } catch (e) {}
-
-    // 2. Chargement Déblocages (avec auto-réparation)
-    try {
-      const savedUnlocked = localStorage.getItem('webdoc-unlocked');
-      if (savedUnlocked) {
-        const parsed = JSON.parse(savedUnlocked);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setUnlockedNodes(parsed);
-        } else {
-          setUnlockedNodes(['les-racines']);
-        }
-      } else {
-        setUnlockedNodes(['les-racines']);
-      }
-    } catch (e) {
-      setUnlockedNodes(['les-racines']);
-    }
-  }, []);
+  // Plus de chargement localStorage, on repart à zéro à chaque F5
 
   const markAsVisited = (id: string) => {
     if (!visitedNodes.includes(id)) {
       const newVisited = [...visitedNodes, id];
       setVisitedNodes(newVisited);
-      localStorage.setItem('webdoc-visited', JSON.stringify(newVisited));
+      // localStorage.setItem('webdoc-visited', JSON.stringify(newVisited)); // Désactivé
     }
   };
 
@@ -72,7 +49,7 @@ export function ProgressionProvider({ children }: { children: React.ReactNode })
     if (newIdsToAdd.length > 0) {
       const newUnlocked = Array.from(new Set([...unlockedNodes, ...newIdsToAdd]));
       setUnlockedNodes(newUnlocked);
-      localStorage.setItem('webdoc-unlocked', JSON.stringify(newUnlocked));
+      // localStorage.setItem('webdoc-unlocked', JSON.stringify(newUnlocked)); // Désactivé
     }
   };
 

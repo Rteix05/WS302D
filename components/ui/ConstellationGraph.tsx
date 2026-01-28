@@ -28,6 +28,25 @@ export default function ConstellationGraph({
   const nodeAnimState = useRef<
     Record<string, { currentRadius: number; currentGap: number }>
   >({});
+  
+  // NOUVEAU : Référence pour stocker le timestamp de "déblocage" de chaque node
+  // Map<NodeID, Date.now()>
+  const unlockTimestamps = useRef<Map<string, number>>(new Map());
+  
+  // Effet pour détecter les nouveaux déblocages
+  useEffect(() => {
+    unlockedNodes.forEach(id => {
+      // Si on ne l'a pas déjà enregistré, c'est un nouveau déblocage (ou initial)
+      if (!unlockTimestamps.current.has(id)) {
+        // Pour "les-racines" (initial), on ne veut pas forcément d'anim, 
+        // ou alors une anim rapide via un délai passé.
+        // Mais pour simplifier : on marque le temps actuel.
+        // Si c'est le chargement initial de la page, Date.now() est le même pour tous,
+        // on pourrait différencier si on voulait les faire poper.
+        unlockTimestamps.current.set(id, Date.now());
+      }
+    });
+  }, [unlockedNodes]);
 
   // Mise à jour des dimensions
   useEffect(() => {
@@ -52,7 +71,17 @@ export default function ConstellationGraph({
 
   // Fonction pour convertir les coordonnées du graphe en coordonnées canvas
   const toCanvasCoords = (x: number, y: number) => {
-    const scale = 2.5;
+    // Échelle dynamique responsive : 
+    // - Desktop (>1000px) : 2.5
+    // - Tablette (>600px) : 1.8
+    // - Mobile : 1.2
+    let scale = 2.5;
+    if (dimensions.w < 600) {
+      scale = 1.2;
+    } else if (dimensions.w < 1000) {
+      scale = 1.8;
+    }
+
     const offsetX = dimensions.w / 2;
     const offsetY = dimensions.h / 2;
     return {
@@ -154,25 +183,51 @@ export default function ConstellationGraph({
 
           const isTargetUnlocked = unlockedNodes.includes(link.target);
 
-          ctx.beginPath();
-          ctx.moveTo(source.x, source.y);
-          ctx.lineTo(target.x, target.y);
+          // Vérifier si une animation est en cours pour le target
+          const unlockTime = unlockTimestamps.current.get(link.target);
+          const now = Date.now();
+          let progress = 1; // Par défaut 100%
 
-          if (link.source.startsWith("star") || link.target.startsWith("star")) {
-            ctx.strokeStyle = "rgba(255,255,255,0.1)";
-            ctx.lineWidth = 1;
-          } else if (isTargetUnlocked) {
-            ctx.strokeStyle = "#457B9D";
-            ctx.lineWidth = 2;
-            ctx.setLineDash([]);
-          } else {
+          // Si on a un temps de déblocage, on calcule la progression
+          if (unlockTime && isTargetUnlocked) {
+            const duration = 1500; // 1.5 secondes pour tracer le trait
+            progress = Math.min((now - unlockTime) / duration, 1);
+          }
+
+          // DESSIN DU FOND (Trait grisillé ou pointillé pour tous les liens connectés)
+          // On dessine toujours le fond gris d'abord sauf pour les étoiles
+          if (!(link.source.startsWith("star") || link.target.startsWith("star"))) {
+            ctx.beginPath();
+            ctx.moveTo(source.x, source.y);
+            ctx.lineTo(target.x, target.y);
             ctx.strokeStyle = "rgba(69, 123, 157, 0.2)";
             ctx.lineWidth = 1;
             ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash
           }
 
-          ctx.stroke();
-          ctx.setLineDash([]);
+          // DESSIN DU TRAIT ACTIF (Par dessus)
+          if (link.source.startsWith("star") || link.target.startsWith("star")) {
+             // Traits étoiles déco
+            ctx.beginPath();
+            ctx.moveTo(source.x, source.y);
+            ctx.lineTo(target.x, target.y);
+            ctx.strokeStyle = "rgba(255,255,255,0.1)";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          } else if (isTargetUnlocked) {
+            // Calcul du point final en fonction de la progression
+            const currentX = source.x + (target.x - source.x) * progress;
+            const currentY = source.y + (target.y - source.y) * progress;
+
+            ctx.beginPath();
+            ctx.moveTo(source.x, source.y);
+            ctx.lineTo(currentX, currentY);
+            ctx.strokeStyle = "#457B9D";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          } 
         }
       });
 
@@ -195,55 +250,61 @@ export default function ConstellationGraph({
           return;
         }
 
+        // --- GESTION DU TIMING D'APPARITION ---
+        const unlockTime = unlockTimestamps.current.get(node.id);
+        const now = Date.now();
+        const ANIMATION_DURATION = 1500;
+        
+        let visualUnlocked = isUnlocked;
+        
+        // Si le node est débloqué mais que le trait n'est pas encore arrivé (1.5s), on le garde "verrouillé" visuellement
+        // Exception pour "les-racines" qui est le point de départ
+        if (isUnlocked && node.id !== "les-racines" && unlockTime && (now - unlockTime < ANIMATION_DURATION)) {
+          visualUnlocked = false;
+        }
+
         // --- GESTION DE L'ANIMATION DU RAYON ---
         // Définir la taille cible
         let targetRadius = 18; // Taille verrouillée par défaut
-        if (isUnlocked) {
+        if (visualUnlocked) {
           targetRadius = isHover || isSelected ? 35 : 25;
         }
 
-        // Initialiser l'état si inexistant ou incomplet (pour supporter le hot reload)
+        // Initialiser l'état si inexistant ou incomplet
         if (!nodeAnimState.current[node.id]) {
           nodeAnimState.current[node.id] = {
             currentRadius: targetRadius,
             currentGap: 0,
           };
         }
-        // Patch de sécurité si la propriété currentGap est manquante
         if (typeof nodeAnimState.current[node.id].currentGap === "undefined") {
           nodeAnimState.current[node.id].currentGap = 0;
         }
 
-        // Interpolation linéaire (Lerp) pour une transition fluide
+        // Interpolation
         const anim = nodeAnimState.current[node.id];
-        // Vitesse de transition
         anim.currentRadius += (targetRadius - anim.currentRadius) * 0.15;
 
-        // --- GESTION DU GAP (CERCLE DE SÉLECTION) ---
+        // Gap
         let targetGap = 0;
         if (isSelected) {
-          targetGap = 15; // Écart final quand sélectionné
+          targetGap = 15;
         }
-
-        // Si on n'est pas sélectionné mais qu'il y a du gap, on le réduit
         anim.currentGap += (targetGap - anim.currentGap) * 0.15;
-
-        // Arrondir très proche pour éviter de l'oscillation inutile
-        if (Math.abs(targetRadius - anim.currentRadius) < 0.1) {
-          anim.currentRadius = targetRadius;
-        }
-        if (Math.abs(targetGap - anim.currentGap) < 0.1) {
-          anim.currentGap = targetGap;
-        }
+        
+        // Snap
+        if (Math.abs(targetRadius - anim.currentRadius) < 0.1) anim.currentRadius = targetRadius;
+        if (Math.abs(targetGap - anim.currentGap) < 0.1) anim.currentGap = targetGap;
 
         const radius = anim.currentRadius;
         // ---------------------------------------
 
-        // Nodes verrouillés
-        if (!isUnlocked) {
+        // Colors
+        if (!visualUnlocked) {
           ctx.beginPath();
           ctx.arc(x, y, radius, 0, 2 * Math.PI);
-          ctx.fillStyle = "#4a5568";
+          // Gris foncé pour les nodes verrouillés (ou en attente du trait)
+          ctx.fillStyle = "#4a5568"; 
           ctx.fill();
           return;
         }
@@ -320,6 +381,16 @@ export default function ConstellationGraph({
           const isHover = node.id === hoveredNode;
           const isSelected = node.id === selectedNodeId;
 
+          // Gestion du délai d'apparition du texte
+          // Si c'est "les-racines" : immédiat
+          // Sinon : délai de 1.5s (temps du trait)
+          const isImmediate = node.id === "les-racines";
+          const delayStyle = isImmediate ? {} : { animation: "fadeIn 0.5s ease-out 1.5s forwards", opacity: 0 };
+          
+          const isMobile = dimensions.w < 600;
+          const labelFontSize = isHover || isSelected ? (isMobile ? "18px" : "24px") : (isMobile ? "14px" : "18px");
+          const labelOffset = isHover || isSelected ? (isMobile ? "45px" : "55px") : (isMobile ? "30px" : "40px");
+
           return (
             <div key={node.id}>
               {/* ZONE DE CLIC (HITBOX) TRANSPARENTE SUR LE NOEUD */}
@@ -355,18 +426,19 @@ export default function ConstellationGraph({
                   position: "absolute",
                   left: x,
                   top: y,
-                  transform: `translate(-50%, ${isHover || isSelected ? "55px" : "40px"})`,
+                  transform: `translate(-50%, ${labelOffset})`,
                   pointerEvents: "auto",
                   cursor: "pointer",
-                  transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                  transition: "transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), font-size 0.4s ease",
                   color: "#F1FAEE",
                   textShadow:
                     "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 10px rgba(0,0,0,0.5)",
-                  fontSize: isHover || isSelected ? "24px" : "18px",
+                  fontSize: labelFontSize,
                   fontWeight: isHover || isSelected ? "bold" : "normal",
                   zIndex: 20,
                   textAlign: "center",
                   whiteSpace: "nowrap",
+                  ...delayStyle
                 }}
               >
                 {node.label}
