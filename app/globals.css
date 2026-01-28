@@ -1,18 +1,14 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html,
-body {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+@theme {
+  --color-primary: #e67e22;
+  --color-secondary: #457b9d;
+  --color-background: #121212;
+  --color-foreground: #f1faee;
+  
+  --font-sans: var(--font-space), sans-serif;
+  --font-serif: var(--font-ibm-plex-mono), monospace;
+  --font-mono: var(--font-ibm-plex-mono), monospace;
 }
 
 :root {
@@ -23,14 +19,20 @@ body {
   --color-text: #f1faee; /* Ghost White - Lisibilité maximale */
 
   /* Typos (à adapter si tu importes des polices spécifiques) */
-  --font-heading: system-ui, -apple-system, sans-serif;
-  --font-body: "Georgia", serif; /* Serif pour le côté éditorial */
+  --font-heading: var(--font-space), sans-serif;
+  --font-body: var(--font-ibm-plex-mono), monospace;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
   background-color: var(--color-background);
   color: var(--color-text);
-  overflow: hidden; /* Important pour l'immersion plein écran */
   font-family: var(--font-body);
 }
 

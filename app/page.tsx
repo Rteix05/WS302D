@@ -96,6 +96,14 @@ export default function Home() {
           )}
         </div>
 
+        {/* OVERLAY FERMETURE (Clic gauche pour fermer) */}
+        {selectedChapter && (
+          <div
+            className="absolute inset-0 z-50 cursor-pointer"
+            onClick={handleClose}
+          />
+        )}
+
         {/* Le Panneau Latéral */}
         <AnimatePresence>
           {selectedChapter && (
@@ -106,8 +114,8 @@ export default function Home() {
                 top: 0,
                 right: 0,
                 height: "100%",
-                width: "50vw",
-                maxWidth: "600px",
+                width: "65vw",
+                maxWidth: "1000px",
                 zIndex: 100,
                 backgroundColor: "#121212",
               }}

@@ -53,10 +53,9 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
   const playClick = () => sfxRef.current.click?.play();
   const playClick2 = () => sfxRef.current.click2?.play();
   const playHover = () => {
-    // Empêcher le spam de hover si déjà en train de jouer
-    if (!sfxRef.current.hover?.playing()) {
-      sfxRef.current.hover?.play();
-    }
+    // Stop le son actuel pour permettre de le relancer immédiatement (effet "reset")
+    sfxRef.current.hover?.stop();
+    sfxRef.current.hover?.play();
   };
   const playText = () => sfxRef.current.text?.play();
   const playWhoosh = () => sfxRef.current.whoosh?.play();

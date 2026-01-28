@@ -192,7 +192,7 @@ Santé Publique France (Baromètre 2024/2025) : Rapports sur l'augmentation
 des pensées suicidaires et des épisodes dépressifs, touchant particulièrement
 les jeunes femmes et les étudiants en milieu urbain.`,
     iframe:
-      '<iframe src="https://embed.kumu.io/1830091f2b16762285f2d0a937c672a3" width="600" height="600" frameborder="0"></iframe>', // Ou l'URL de ton graphique
+      '<iframe src="https://embed.kumu.io/1830091f2b16762285f2d0a937c672a3" width="899" height="490" frameborder="0"></iframe>', // Ou l'URL de ton graphique
   },
   "nouveaux-horizons": {
     title: "L'ÉVEIL",

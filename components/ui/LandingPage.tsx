@@ -52,7 +52,7 @@ const FloatingNode = ({
       },
     }}
     style={{ top, left }}
-    className={`absolute z-20 w-32 aspect-square rounded-full flex items-center justify-center text-center backdrop-blur-md border border-white/30 text-[#F1FAEE] text-sm font-medium tracking-wide pointer-events-none select-none p-2
+    className={`absolute z-20 w-40 aspect-square rounded-full flex items-center justify-center text-center backdrop-blur-md border border-white/30 text-[#F1FAEE] text-sm font-medium tracking-wide pointer-events-none select-none p-6
     ${
       color === "red"
         ? "shadow-[0_0_20px_rgba(239,68,68,0.4),inset_0_0_10px_rgba(239,68,68,0.2)]"
@@ -84,7 +84,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }}
-      className="fixed inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden z-[100] font-['Space_Grotesk',_sans-serif] bg-black"
+      className="fixed inset-0 w-full h-full flex flex-col items-center justify-center overflow-hidden z-[100] bg-black"
     >
       <div className="absolute inset-0 bg-black/40 z-0" />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/90 z-0" />
@@ -124,22 +124,22 @@ export default function LandingPage({ onStart }: LandingPageProps) {
       <div className="relative z-30 flex flex-col items-center justify-center h-full w-full pb-10">
         {/* TITRE */}
         <motion.div
-          initial={{ opacity: 0, y: 30, letterSpacing: "0.2em" }}
-          animate={{ opacity: 1, y: 0, letterSpacing: "0em" }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.5, ease: "easeOut" }}
-          className="flex flex-col items-center justify-center mb-6"
+          className="flex flex-col items-center justify-center mb-16"
         >
-          <h1 className="text-5xl md:text-8xl lg:text-9xl font-bold text-white text-center drop-shadow-2xl uppercase leading-none tracking-tight">
-            HORIZONS
-          </h1>
-          <h1
-            className="text-5xl md:text-8xl lg:text-9xl font-bold text-transparent text-center drop-shadow-2xl uppercase leading-none tracking-tight"
-            style={{
-              WebkitTextStroke: "1.5px rgba(241, 250, 238, 0.9)",
-              textShadow: "0 0 30px rgba(255,255,255,0.2)",
-            }}
-          >
-            SUSPENDUS
+          <h1 className="text-6xl md:text-8xl lg:text-9xl font-sans font-black text-white text-center drop-shadow-2xl uppercase leading-none tracking-tight">
+            HORIZONS{" "}
+            <span
+              className="text-transparent ml-2"
+              style={{
+                WebkitTextStroke: "2px #E67E22",
+                textStroke: "2px #E67E22",
+              }}
+            >
+              SUSPENDUS
+            </span>
           </h1>
         </motion.div>
 
@@ -160,31 +160,27 @@ export default function LandingPage({ onStart }: LandingPageProps) {
             </span>
           </div>
 
-          {/* BOUTON STYLE "ECHOS" FINAL 
-                   - Fond sombre (black/30) pour effet fumé
-                   - Bordure fine (white/30)
-                   - Texte fin et espacé
-                   - Padding réduit (py-3) pour la finesse
-                */}
+          {/* BOUTON STYLE "ECHOS" FINAL */}
           <motion.button
             onClick={onStart}
+            onHoverStart={playHover}
             whileHover={{
               scale: 1.05,
-              backgroundColor: "rgba(255,255,255,0.1)",
-              borderColor: "rgba(255,255,255,0.6)",
+              backgroundColor: "rgba(230, 126, 34, 0.2)", // Orange subtil au survol
+              borderColor: "#E67E22",
             }}
             whileTap={{ scale: 0.95 }}
             style={{
-              background: "rgba(0, 0, 0, 0.3)", // Fond sombre transparent
-              backdropFilter: "blur(4px)",
-              border: "1px solid rgba(255, 255, 255, 0.3)", // Bordure fine
+              background: "rgba(255, 255, 255, 0.1)", // Fond clair très transparent (Glass)
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(255, 255, 255, 0.5)", // Bordure semi-opaque
             }}
-            className="px-10 py-3 rounded-full text-white text-sm font-light uppercase tracking-[0.2em] cursor-pointer transition-all shadow-lg"
+            className="px-14 py-6 rounded-full text-white text-xl font-sans font-bold uppercase tracking-[0.25em] cursor-pointer transition-all shadow-[0_0_30px_rgba(0,0,0,0.5)]"
           >
             Entrer dans la constellation
           </motion.button>
 
-          <p className="max-w-md text-white/40 text-xs font-serif italic mt-6 text-center">
+          <p className="max-w-xl text-white/80 text-base font-serif italic mt-10 text-center drop-shadow-md">
             "Qu'est-ce que signifie se construire quand l'avenir est flou ?"
           </p>
         </motion.div>
