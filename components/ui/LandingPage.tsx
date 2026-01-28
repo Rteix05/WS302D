@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Headphones } from "lucide-react";
+import { useSound } from "@/components/providers/SoundContext";
 
 // --- STYLE CSS "VERRE" ---
 const glassStyle = {

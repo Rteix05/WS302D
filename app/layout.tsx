@@ -27,7 +27,9 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className={`${inter.className} ${spaceGrotesk.variable}`}>
-        <ProgressionProvider>{children}</ProgressionProvider>
+        <SoundProvider>
+          <ProgressionProvider>{children}</ProgressionProvider>
+        </SoundProvider>
       </body>
     </html>
   );
