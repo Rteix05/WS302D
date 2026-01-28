@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google"; // On utilise une Google Font propre
 import "./globals.css";
 import { ProgressionProvider } from "@/components/providers/ProgressionContext";
+import { SoundProvider } from "@/components/providers/SoundContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,7 +21,9 @@ export default function RootLayout({
       <body
         className={`${inter.className} w-full h-full m-0 p-0 overflow-hidden`}
       >
-        <ProgressionProvider>{children}</ProgressionProvider>
+        <SoundProvider>
+          <ProgressionProvider>{children}</ProgressionProvider>
+        </SoundProvider>
       </body>
     </html>
   );

@@ -2,12 +2,15 @@
 
 import { motion } from "framer-motion";
 import { Headphones, Play } from "lucide-react";
+import { useSound } from "@/components/providers/SoundContext";
 
 interface LandingPageProps {
   onStart: () => void;
 }
 
 export default function LandingPage({ onStart }: LandingPageProps) {
+  const { playClick2, playHover } = useSound();
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -73,7 +76,11 @@ export default function LandingPage({ onStart }: LandingPageProps) {
 
         {/* Bouton Commencer */}
         <motion.button
-          onClick={onStart}
+          onClick={() => {
+            playClick2();
+            onStart();
+          }}
+          onMouseEnter={() => playHover()}
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.7, duration: 0.6 }}

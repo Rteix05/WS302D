@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useProgression } from "@/components/providers/ProgressionContext";
+import { useSound } from "@/components/providers/SoundContext";
 import { nodesData, linksData } from "@/lib/data";
 
 interface ConstellationGraphProps {
@@ -14,6 +15,7 @@ export default function ConstellationGraph({
   selectedNodeId,
 }: ConstellationGraphProps) {
   const progression = useProgression() as any;
+  const { playClick, playHover } = useSound();
   const unlockedNodes = progression?.unlockedNodes || ["les-racines"];
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -84,6 +86,7 @@ export default function ConstellationGraph({
       unlockedNodes.includes(nodeId) &&
       !nodeId.startsWith("star")
     ) {
+      playClick();
       onNodeSelect(nodeId);
     }
   };
@@ -98,6 +101,12 @@ export default function ConstellationGraph({
     const mouseY = e.clientY - rect.top;
 
     const nodeId = getNodeAtPosition(mouseX, mouseY);
+
+    // Jouer le son si on survole un NOUVEAU node débloqué
+    if (nodeId && nodeId !== hoveredNode && unlockedNodes.includes(nodeId)) {
+      playHover();
+    }
+
     setHoveredNode(nodeId);
 
     if (nodeId && unlockedNodes.includes(nodeId)) {

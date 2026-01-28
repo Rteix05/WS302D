@@ -1,17 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import LandingPage from "@/components/ui/LandingPage";
 import StarBackground from "@/components/ui/StarBackground";
 import ConstellationGraph from "@/components/ui/ConstellationGraph";
 import ChapterPanel from "@/components/ui/ChapterPanel";
 import { useProgression } from "@/components/providers/ProgressionContext";
+import { useSound } from "@/components/providers/SoundContext";
 
 export default function Home() {
   const { markAsVisited, unlockNext } = useProgression();
+  const { playAmbiance, fadeAmbianceOut, fadeAmbianceIn, stopAmbiance } =
+    useSound();
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
+
+  // Gestion de l'ambiance sonore
+  useEffect(() => {
+    if (hasStarted) {
+      playAmbiance();
+    }
+    return () => stopAmbiance();
+  }, [hasStarted, playAmbiance, stopAmbiance]);
+
+  // Gérer le fade de l'ambiance selon si un chapitre est ouvert
+  useEffect(() => {
+    if (selectedChapter) {
+      fadeAmbianceOut();
+    } else if (hasStarted) {
+      fadeAmbianceIn();
+    }
+  }, [selectedChapter, hasStarted, fadeAmbianceOut, fadeAmbianceIn]);
 
   const handleNodeSelect = (id: string) => {
     setSelectedChapter(id);
