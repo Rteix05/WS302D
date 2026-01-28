@@ -1,214 +1,271 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from 'react';
-import dynamic from 'next/dynamic';
-import { useProgression } from '@/components/providers/ProgressionContext';
-import { nodesData, linksData } from '@/lib/data';
-
-// Import dynamique pour éviter les erreurs serveur (SSR)
-const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
+import { useEffect, useRef, useState } from "react";
+import { useProgression } from "@/components/providers/ProgressionContext";
+import { nodesData, linksData } from "@/lib/data";
 
 interface ConstellationGraphProps {
   onNodeSelect: (id: string) => void;
   selectedNodeId: string | null;
 }
 
-export default function ConstellationGraph({ onNodeSelect, selectedNodeId }: ConstellationGraphProps) {
-  // 1. Récupération des données avec sécurités (fallback tableaux vides)
+export default function ConstellationGraph({
+  onNodeSelect,
+  selectedNodeId,
+}: ConstellationGraphProps) {
   const progression = useProgression() as any;
-  const unlockedNodes = progression?.unlockedNodes || ['les-racines'];
-  const visitedNodes = progression?.visitedNodes || [];
+  const unlockedNodes = progression?.unlockedNodes || ["les-racines"];
 
-  const graphRef = useRef<any>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ w: 800, h: 600 });
-  const [hoveredNode, setHoveredNode] = useState<any>(null);
-  const [selectionStartTime, setSelectionStartTime] = useState<number>(0);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
-  // Gestion du timer d'animation de sélection
-  useEffect(() => {
-    if (selectedNodeId) {
-       setSelectionStartTime(Date.now());
-    }
-  }, [selectedNodeId]);
-
-  // Gestion redimensionnement fenêtre
+  // Mise à jour des dimensions
   useEffect(() => {
     const updateDimensions = () => {
-      if (containerRef.current) {
-        setDimensions({ 
-            w: containerRef.current.clientWidth, 
-            h: containerRef.current.clientHeight 
-        });
-      }
+      const newDims = {
+        w: window.innerWidth,
+        h: window.innerHeight,
+      };
+      setDimensions(newDims);
+      setIsReady(true);
     };
-    
+
+    // Attendre un peu pour que le DOM soit prêt
     const timer = setTimeout(updateDimensions, 100);
-    window.addEventListener('resize', updateDimensions);
-    
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
     return () => {
-      window.removeEventListener('resize', updateDimensions);
+      window.removeEventListener("resize", updateDimensions);
       clearTimeout(timer);
     };
   }, []);
 
-  // Caméra / Zoom automatique
-  useEffect(() => {
-    if (!graphRef.current) return;
-    
-    if (selectedNodeId) {
-      const node = nodesData.find(n => n.id === selectedNodeId);
-      if (node && typeof node.x === 'number') {
-        graphRef.current.centerAt(node.x, node.y, 1000);
-        graphRef.current.zoom(2.5, 1000);
-      }
-    } else {
-      setTimeout(() => {
-          graphRef.current?.zoomToFit(1000, 50);
-      }, 500); 
-    }
-  }, [selectedNodeId, dimensions.w]);
-
-  // Helper : Convertir ID en string pour éviter crashs
-  const safeId = (val: any): string => {
-    if (val === null || val === undefined) return "";
-    if (typeof val === 'object' && val.id) return String(val.id);
-    return String(val);
+  // Fonction pour convertir les coordonnées du graphe en coordonnées canvas
+  const toCanvasCoords = (x: number, y: number) => {
+    const scale = 1.5;
+    const offsetX = dimensions.w / 2;
+    const offsetY = dimensions.h / 2;
+    return {
+      x: offsetX + x * scale,
+      y: offsetY + y * scale,
+    };
   };
 
+  // Fonction pour vérifier si on clique sur un node
+  const getNodeAtPosition = (mouseX: number, mouseY: number) => {
+    for (const node of nodesData) {
+      if (!node.x || !node.y) continue;
+      const { x, y } = toCanvasCoords(node.x, node.y);
+      const distance = Math.sqrt(
+        Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2),
+      );
+      if (distance < 15) {
+        return node.id;
+      }
+    }
+    return null;
+  };
+
+  // Gestion des clics
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const nodeId = getNodeAtPosition(mouseX, mouseY);
+    if (
+      nodeId &&
+      unlockedNodes.includes(nodeId) &&
+      !nodeId.startsWith("star")
+    ) {
+      onNodeSelect(nodeId);
+    }
+  };
+
+  // Gestion du hover
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const nodeId = getNodeAtPosition(mouseX, mouseY);
+    setHoveredNode(nodeId);
+
+    if (nodeId && unlockedNodes.includes(nodeId)) {
+      canvas.style.cursor = "pointer";
+    } else {
+      canvas.style.cursor = "default";
+    }
+  };
+
+  // Rendu du canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !isReady) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, dimensions.w, dimensions.h);
+
+    // 1. Dessiner les liens
+    linksData.forEach((link) => {
+      const sourceNode = nodesData.find((n) => n.id === link.source);
+      const targetNode = nodesData.find((n) => n.id === link.target);
+
+      if (
+        sourceNode &&
+        targetNode &&
+        sourceNode.x !== undefined &&
+        sourceNode.y !== undefined &&
+        targetNode.x !== undefined &&
+        targetNode.y !== undefined
+      ) {
+        const source = toCanvasCoords(sourceNode.x, sourceNode.y);
+        const target = toCanvasCoords(targetNode.x, targetNode.y);
+
+        const isTargetUnlocked = unlockedNodes.includes(link.target);
+
+        ctx.beginPath();
+        ctx.moveTo(source.x, source.y);
+        ctx.lineTo(target.x, target.y);
+
+        if (link.source.startsWith("star") || link.target.startsWith("star")) {
+          ctx.strokeStyle = "rgba(255,255,255,0.1)";
+          ctx.lineWidth = 1;
+        } else if (isTargetUnlocked) {
+          ctx.strokeStyle = "#457B9D";
+          ctx.lineWidth = 2;
+          ctx.setLineDash([]);
+        } else {
+          ctx.strokeStyle = "rgba(69, 123, 157, 0.2)";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([5, 5]);
+        }
+
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    });
+
+    // 2. Dessiner les nodes
+    nodesData.forEach((node) => {
+      if (node.x === undefined || node.y === undefined) return;
+
+      const { x, y } = toCanvasCoords(node.x, node.y);
+      const isUnlocked = unlockedNodes.includes(node.id);
+      const isSelected = node.id === selectedNodeId;
+      const isHover = node.id === hoveredNode;
+      const isStar = node.id.startsWith("star");
+
+      // Étoiles décoratives
+      if (isStar) {
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+        ctx.fill();
+        return;
+      }
+
+      // Nodes verrouillés
+      if (!isUnlocked) {
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, 2 * Math.PI);
+        ctx.fillStyle = "#4a5568";
+        ctx.fill();
+        return;
+      }
+
+      // Nodes débloqués
+      const radius = isHover || isSelected ? 14 : 10;
+
+      // Effet de lueur si hover ou sélectionné
+      if (isHover || isSelected) {
+        ctx.shadowColor = "#E67E22";
+        ctx.shadowBlur = 15;
+      }
+
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = "#E67E22";
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+
+      // Cercle de sélection pulsant
+      if (isSelected) {
+        const elapsed = Date.now() % 1600;
+        const cycle = (1 - Math.cos((elapsed / 400) * Math.PI)) / 2;
+        const gap = 2 + cycle * 8;
+
+        ctx.beginPath();
+        ctx.arc(x, y, radius + gap, 0, 2 * Math.PI);
+        ctx.strokeStyle = "#E67E22";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      // Texte (label)
+      if (node.label) {
+        const fontSize = isHover || isSelected ? 14 : 10;
+        ctx.font = `${isHover || isSelected ? "bold" : ""} ${fontSize}px Arial, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // Contour noir
+        ctx.strokeStyle = "rgba(0,0,0,0.9)";
+        ctx.lineWidth = 3;
+        ctx.strokeText(node.label, x, y);
+
+        // Texte blanc
+        ctx.fillStyle = "#F1FAEE";
+        ctx.fillText(node.label, x, y);
+      }
+    });
+  }, [dimensions, unlockedNodes, selectedNodeId, hoveredNode, isReady]);
+
+  // Animation pour la pulsation du node sélectionné
+  useEffect(() => {
+    if (!selectedNodeId) return;
+
+    const interval = setInterval(() => {
+      setHoveredNode((prev) => prev);
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [selectedNodeId]);
+
   return (
-    <div ref={containerRef} className="absolute inset-0 overflow-hidden bg-transparent">
-      <ForceGraph2D
-        ref={graphRef}
+    <div
+      ref={containerRef}
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+      }}
+    >
+      <canvas
+        ref={canvasRef}
         width={dimensions.w}
         height={dimensions.h}
-        graphData={{ nodes: nodesData, links: linksData }}
-        backgroundColor="rgba(0,0,0,0)"
-        
-        // --- LIENS ---
-        linkColor={(link: any) => {
-            const source = safeId(link.source);
-            const target = safeId(link.target);
-            
-            if (source.startsWith('star') || target.startsWith('star')) return "rgba(255,255,255,0.1)"; 
-            
-            const isTargetUnlocked = unlockedNodes.includes(target);
-            return isTargetUnlocked ? "#457B9D" : "rgba(69, 123, 157, 0.2)";
-        }}
-        linkWidth={(link: any) => {
-            const target = safeId(link.target);
-            return unlockedNodes.includes(target) ? 2 : 1;
-        }}
-        linkLineDash={(link: any) => {
-            const source = safeId(link.source);
-            const target = safeId(link.target);
-            if (source.startsWith('star')) return null;
-            return unlockedNodes.includes(target) ? null : [5, 5]; 
-        }}
-        
-        // @ts-ignore
-        enableZoom={false}
-        // @ts-ignore
-        enablePan={false}
-        
-        // --- INTERACTION ---
-        onNodeHover={(node: any) => {
-            const id = safeId(node);
-            if (id && unlockedNodes.includes(id)) {
-                setHoveredNode(node);
-                document.body.style.cursor = 'pointer';
-            } else {
-                setHoveredNode(null);
-                document.body.style.cursor = 'default';
-            }
-        }}
-        
-        onNodeClick={(node: any) => {
-          const id = safeId(node);
-          if (id && unlockedNodes.includes(id) && !id.startsWith('star')) {
-            onNodeSelect(id);
-          }
-        }}
-
-        // --- DESSIN ---
-        nodeCanvasObject={(node: any, ctx) => {
-          const id = safeId(node);
-          if (!id) return; 
-
-          const isUnlocked = unlockedNodes.includes(id);
-          const isSelected = id === selectedNodeId;
-          const isHover = (hoveredNode && safeId(hoveredNode) === id);
-          const isStar = id.startsWith('star');
-          
-          // 1. ÉTOILES DÉCO
-          if (isStar) {
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, 1.5, 0, 2 * Math.PI, false);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.fill();
-            return;
-          }
-
-          // 2. VERROUILLÉ (Gris)
-          if (!isUnlocked) {
-              ctx.beginPath();
-              ctx.arc(node.x, node.y, 4, 0, 2 * Math.PI, false);
-              ctx.fillStyle = '#4a5568';
-              ctx.fill();
-              return; 
-          }
-
-          // 3. DÉBLOQUÉ (Orange)
-          const baseRadius = 5; 
-          const activeRadius = 7; 
-          const currentRadius = (isHover || isSelected) ? activeRadius : baseRadius;
-          const orangeColor = '#E67E22';
-          const whiteColor = '#F1FAEE';
-
-          // Pulsation si sélectionné
-          if (isSelected) {
-             const now = Date.now();
-             const elapsed = now - selectionStartTime;
-             const cycle = (1 - Math.cos(elapsed / 400)) / 2; 
-             const gap = 2 + (cycle * 8);
-             
-             ctx.beginPath();
-             ctx.arc(node.x, node.y, currentRadius + gap, 0, 2 * Math.PI, false);
-             ctx.strokeStyle = orangeColor;
-             ctx.lineWidth = 1.5; 
-             ctx.stroke();
-          } 
-          
-          if (isHover || isSelected) {
-             ctx.shadowColor = orangeColor;
-             ctx.shadowBlur = 15;
-          } else {
-             ctx.shadowBlur = 0;
-          }
-
-          // Cercle
-          ctx.beginPath();
-          ctx.arc(node.x, node.y, currentRadius, 0, 2 * Math.PI, false);
-          ctx.fillStyle = orangeColor;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-
-          // 4. TEXTE (MODIFIÉ : Centré sur le noeud)
-          if (node.label) {
-            const fontSize = (isHover || isSelected) ? 7 : 5; 
-            ctx.font = `${(isHover || isSelected) ? 'bold' : ''} ${fontSize}px Arial, sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            // Contour noir plus épais pour bien lire le texte par dessus le point orange
-            ctx.strokeStyle = 'rgba(0,0,0,0.9)';
-            ctx.lineWidth = 0.75; 
-            ctx.strokeText(node.label, node.x, node.y); // <-- node.y (centré) au lieu de node.y + 12
-            
-            // Texte blanc
-            ctx.fillStyle = whiteColor;
-            ctx.fillText(node.label, node.x, node.y); // <-- node.y (centré)
-          }
+        onClick={handleClick}
+        onMouseMove={handleMouseMove}
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "block",
         }}
       />
     </div>

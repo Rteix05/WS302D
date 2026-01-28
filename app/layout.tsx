@@ -16,11 +16,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
-      <body className={inter.className}>
-        <ProgressionProvider>
-          {children}
-        </ProgressionProvider>
+    <html lang="fr" className="w-full h-full">
+      <body
+        className={`${inter.className} w-full h-full m-0 p-0 overflow-hidden`}
+      >
+        <ProgressionProvider>{children}</ProgressionProvider>
       </body>
     </html>
   );

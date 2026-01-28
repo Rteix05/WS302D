@@ -17,7 +17,7 @@ export default function StarBackground() {
       className="absolute inset-0 -z-10" // -z-10 pour rester derrière tout le reste
       options={{
         background: {
-          color: { value: "#121212" }, // Couleur Off-Black du document
+          color: { value: "transparent" }, // Transparent pour laisser voir le canvas
         },
         fpsLimit: 60,
         interactivity: {
