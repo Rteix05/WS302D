@@ -52,11 +52,11 @@ export default function ChapterPanel({ chapterId, onClose }: ChapterPanelProps) 
         <div className="prose prose-invert prose-lg text-[#F1FAEE]/80 font-serif leading-relaxed text-justify mb-10">
           <p>{content.text}</p>
           <p>
-            C'est ici que l'enquête prend forme. Entre les données brutes et les témoignages sensibles, 
-            nous dessinons les contours d'une génération en mouvement.
+            C&apos;est ici que l&apos;enquête prend forme. Entre les données brutes et les témoignages sensibles, 
+            nous dessinons les contours d&apos;une génération en mouvement.
           </p>
           <p>
-            L'incertitude n'est plus une fin, mais un point de départ.
+            L&apos;incertitude n&apos;est plus une fin, mais un point de départ.
           </p>
         </div>
 

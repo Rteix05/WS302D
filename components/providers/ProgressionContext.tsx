@@ -27,8 +27,8 @@ export function ProgressionProvider({ children }: { children: React.ReactNode })
     }
   };
 
-  // On considère "Complet" si les 3 chapitres principaux sont vus
-  const isComplete = ['eco-anxiete', 'quete-sens', 'adolescence'].every(id => 
+  // On considère "Complet" si les 5 chapitres principaux sont vus
+  const isComplete = ['les-racines', 'le-vertige', 'la-boussole', 'le-poids-du-monde', 'nouveaux-horizons'].every(id => 
     visitedNodes.includes(id)
   );
 
