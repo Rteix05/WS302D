@@ -8,7 +8,7 @@ import ChapterPanel from "@/components/ui/ChapterPanel";
 import { useProgression } from "@/components/providers/ProgressionContext";
 
 export default function Home() {
-  const { markAsVisited } = useProgression();
+  const { markAsVisited, unlockNext } = useProgression();
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
 
   const handleNodeSelect = (id: string) => {
@@ -17,6 +17,11 @@ export default function Home() {
   };
 
   const handleClose = () => {
+    // C'EST ICI QUE LA MAGIE OPÈRE :
+    // Quand on ferme le panneau, on débloque les chapitres suivants liés à celui qu'on vient de lire.
+    if (selectedChapter) {
+        unlockNext(selectedChapter);
+    }
     setSelectedChapter(null);
   };
 
@@ -39,7 +44,7 @@ export default function Home() {
           selectedNodeId={selectedChapter}
         />
         
-        {/* Titre */}
+        {/* Titre (disparaît si un chapitre est ouvert) */}
         <motion.div 
           className="absolute top-10 left-10 pointer-events-none z-20"
           initial={{ opacity: 1, x: 0 }}

@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useProgression } from '@/components/providers/ProgressionContext';
 import { nodesData, linksData } from '@/lib/data';
 
-// Import dynamique pour éviter l'erreur SSR
+// Import dynamique pour éviter les erreurs serveur (SSR)
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
 
 interface ConstellationGraphProps {
@@ -14,121 +14,134 @@ interface ConstellationGraphProps {
 }
 
 export default function ConstellationGraph({ onNodeSelect, selectedNodeId }: ConstellationGraphProps) {
-  const { visitedNodes, isComplete } = useProgression();
+  // 1. Récupération des données avec sécurités (fallback tableaux vides)
+  const progression = useProgression() as any;
+  const unlockedNodes = progression?.unlockedNodes || ['les-racines'];
+  const visitedNodes = progression?.visitedNodes || [];
+
   const graphRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ w: 800, h: 600 });
   const [hoveredNode, setHoveredNode] = useState<any>(null);
-  
-  // Timer pour gérer la durée de l'animation
   const [selectionStartTime, setSelectionStartTime] = useState<number>(0);
 
-  // Reset le timer quand on change de sélection
+  // Gestion du timer d'animation de sélection
   useEffect(() => {
     if (selectedNodeId) {
        setSelectionStartTime(Date.now());
     }
   }, [selectedNodeId]);
 
-  // Mise à jour de la taille basée sur le conteneur parent
+  // Gestion redimensionnement fenêtre
   useEffect(() => {
-    if (!containerRef.current) return;
-
     const updateDimensions = () => {
       if (containerRef.current) {
-        const { clientWidth, clientHeight } = containerRef.current;
-        if (clientWidth > 0 && clientHeight > 0) {
-          setDimensions({ w: clientWidth, h: clientHeight });
-        }
+        setDimensions({ 
+            w: containerRef.current.clientWidth, 
+            h: containerRef.current.clientHeight 
+        });
       }
     };
-
-    updateDimensions();
-
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-         if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
-            setDimensions({ 
-              w: entry.contentRect.width, 
-              h: entry.contentRect.height 
-            });
-         } else {
-            updateDimensions();
-         }
-      }
-    });
-
-    ro.observe(containerRef.current);
-    return () => ro.disconnect();
+    
+    const timer = setTimeout(updateDimensions, 100);
+    window.addEventListener('resize', updateDimensions);
+    
+    return () => {
+      window.removeEventListener('resize', updateDimensions);
+      clearTimeout(timer);
+    };
   }, []);
 
-  // --- LOGIQUE DE CAMÉRA ---
+  // Caméra / Zoom automatique
   useEffect(() => {
     if (!graphRef.current) return;
-
+    
     if (selectedNodeId) {
       const node = nodesData.find(n => n.id === selectedNodeId);
-      if (node && typeof node.x === 'number' && typeof node.y === 'number') {
-        const zoomLevel = 2.5;
+      if (node && typeof node.x === 'number') {
         graphRef.current.centerAt(node.x, node.y, 1000);
-        graphRef.current.zoom(zoomLevel, 1000);
+        graphRef.current.zoom(2.5, 1000);
       }
     } else {
-      // Force un re-centrage complet quand on revient à l'écran divisé
       setTimeout(() => {
-          graphRef.current.zoomToFit(1000, 50);
-      }, 350); 
+          graphRef.current?.zoomToFit(1000, 50);
+      }, 500); 
     }
-  }, [selectedNodeId, dimensions.w, dimensions.h]);
+  }, [selectedNodeId, dimensions.w]);
 
-  // Filtrage des liens
-  const activeLinks = useMemo(() => {
-    return linksData.filter(link => {
-      const sourceId = typeof link.source === 'object' ? (link.source as any).id : link.source;
-      const targetId = typeof link.target === 'object' ? (link.target as any).id : link.target;
-      if (sourceId.startsWith('star') || targetId.startsWith('star')) return true;
-      const sourceVisited = visitedNodes.includes(sourceId);
-      const targetVisited = visitedNodes.includes(targetId);
-      return (sourceVisited && targetVisited) || isComplete;
-    });
-  }, [visitedNodes, isComplete]);
+  // Helper : Convertir ID en string pour éviter crashs
+  const safeId = (val: any): string => {
+    if (val === null || val === undefined) return "";
+    if (typeof val === 'object' && val.id) return String(val.id);
+    return String(val);
+  };
 
   return (
-    <div ref={containerRef} className="absolute inset-0 cursor-pointer overflow-hidden">
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden bg-transparent">
       <ForceGraph2D
         ref={graphRef}
         width={dimensions.w}
         height={dimensions.h}
-        graphData={{ nodes: nodesData, links: activeLinks }}
+        graphData={{ nodes: nodesData, links: linksData }}
         backgroundColor="rgba(0,0,0,0)"
         
-        // Style des liens
-        linkColor={() => "#457B9D"} 
-        linkWidth={isComplete ? 2 : 1}
+        // --- LIENS ---
+        linkColor={(link: any) => {
+            const source = safeId(link.source);
+            const target = safeId(link.target);
+            
+            if (source.startsWith('star') || target.startsWith('star')) return "rgba(255,255,255,0.1)"; 
+            
+            const isTargetUnlocked = unlockedNodes.includes(target);
+            return isTargetUnlocked ? "#457B9D" : "rgba(69, 123, 157, 0.2)";
+        }}
+        linkWidth={(link: any) => {
+            const target = safeId(link.target);
+            return unlockedNodes.includes(target) ? 2 : 1;
+        }}
+        linkLineDash={(link: any) => {
+            const source = safeId(link.source);
+            const target = safeId(link.target);
+            if (source.startsWith('star')) return null;
+            return unlockedNodes.includes(target) ? null : [5, 5]; 
+        }}
         
-        // Bloquer le zoom et le pan
         // @ts-ignore
         enableZoom={false}
         // @ts-ignore
         enablePan={false}
         
-        // Interaction souris
-        onNodeHover={(node) => setHoveredNode(node)}
-        onNodeClick={(node) => {
-          if (node.id && typeof node.id === 'string' && !node.id.startsWith('star')) {
-            onNodeSelect(node.id);
+        // --- INTERACTION ---
+        onNodeHover={(node: any) => {
+            const id = safeId(node);
+            if (id && unlockedNodes.includes(id)) {
+                setHoveredNode(node);
+                document.body.style.cursor = 'pointer';
+            } else {
+                setHoveredNode(null);
+                document.body.style.cursor = 'default';
+            }
+        }}
+        
+        onNodeClick={(node: any) => {
+          const id = safeId(node);
+          if (id && unlockedNodes.includes(id) && !id.startsWith('star')) {
+            onNodeSelect(id);
           }
         }}
 
-        // Dessin des points (Canvas)
-        nodeCanvasObject={(node: any, ctx, globalScale) => {
-          const isVisited = visitedNodes.includes(node.id);
-          const isSelected = node.id === selectedNodeId;
-          const isHover = node === hoveredNode;
-          const isStar = node.id.startsWith('star');
+        // --- DESSIN ---
+        nodeCanvasObject={(node: any, ctx) => {
+          const id = safeId(node);
+          if (!id) return; 
+
+          const isUnlocked = unlockedNodes.includes(id);
+          const isSelected = id === selectedNodeId;
+          const isHover = (hoveredNode && safeId(hoveredNode) === id);
+          const isStar = id.startsWith('star');
           
+          // 1. ÉTOILES DÉCO
           if (isStar) {
-            // Rendu des étoiles (fond)
             ctx.beginPath();
             ctx.arc(node.x, node.y, 1.5, 0, 2 * Math.PI, false);
             ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
@@ -136,86 +149,65 @@ export default function ConstellationGraph({ onNodeSelect, selectedNodeId }: Con
             return;
           }
 
-          // --- NOEUDS PRINCIPAUX (BOULES ORANGES) ---
-          
+          // 2. VERROUILLÉ (Gris)
+          if (!isUnlocked) {
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, 4, 0, 2 * Math.PI, false);
+              ctx.fillStyle = '#4a5568';
+              ctx.fill();
+              return; 
+          }
+
+          // 3. DÉBLOQUÉ (Orange)
           const baseRadius = 5; 
-          const activeRadius = 6; 
-          
-          const isHighlight = isHover || isSelected;
-          const currentRadius = isHighlight ? activeRadius : baseRadius;
-          
-          // Couleur
+          const activeRadius = 7; 
+          const currentRadius = (isHover || isSelected) ? activeRadius : baseRadius;
           const orangeColor = '#E67E22';
           const whiteColor = '#F1FAEE';
 
-          // 1. EFFET "BREATHING RING" (Aller-Retour, 1 seul cycle)
+          // Pulsation si sélectionné
           if (isSelected) {
              const now = Date.now();
              const elapsed = now - selectionStartTime;
+             const cycle = (1 - Math.cos(elapsed / 400)) / 2; 
+             const gap = 2 + (cycle * 8);
              
-             const period = Math.PI * 2 * 400;
-             const maxDuration = period * 1; 
-
-             if (elapsed < maxDuration) {
-                 const cycle = (1 - Math.cos(elapsed / 400)) / 2; 
-                 const gap = 2 + (cycle * 10);
-                 const blur = 10 + (cycle * 15);
-
-                 ctx.beginPath();
-                 ctx.arc(node.x, node.y, currentRadius + gap, 0, 2 * Math.PI, false);
-                 ctx.strokeStyle = orangeColor;
-                 ctx.lineWidth = 2; 
-                 ctx.stroke();
-                 
-                 ctx.shadowColor = orangeColor;
-                 ctx.shadowBlur = blur;
-             } else {
-                 // Animation terminée
-                 ctx.shadowColor = orangeColor;
-                 ctx.shadowBlur = 10;
-             }
-          } else if (isHover) {
+             ctx.beginPath();
+             ctx.arc(node.x, node.y, currentRadius + gap, 0, 2 * Math.PI, false);
+             ctx.strokeStyle = orangeColor;
+             ctx.lineWidth = 1.5; 
+             ctx.stroke();
+          } 
+          
+          if (isHover || isSelected) {
              ctx.shadowColor = orangeColor;
              ctx.shadowBlur = 15;
           } else {
              ctx.shadowBlur = 0;
           }
 
-          // 2. CERCLE PRINCIPAL
-          
-          let finalRadius = currentRadius;
-          if (isSelected) {
-             const elapsed = Date.now() - selectionStartTime;
-             const period = Math.PI * 2 * 400;
-             if (elapsed < period * 1) {
-                const cycle = (1 - Math.cos(elapsed / 400)) / 2;
-                finalRadius += cycle * 1.5; 
-             }
-          }
-
+          // Cercle
           ctx.beginPath();
-          ctx.arc(node.x, node.y, Math.max(0, finalRadius), 0, 2 * Math.PI, false);
+          ctx.arc(node.x, node.y, currentRadius, 0, 2 * Math.PI, false);
           ctx.fillStyle = orangeColor;
           ctx.fill();
-          
-          // Reset shadow
           ctx.shadowBlur = 0;
 
-          // 3. TEXTE
+          // 4. TEXTE (MODIFIÉ : Centré sur le noeud)
           if (node.label) {
-            const fontSize = isHighlight ? 6 : 5; 
-            ctx.font = `${isHighlight ? 'bold' : ''} ${fontSize}px Arial, sans-serif`;
+            const fontSize = (isHover || isSelected) ? 7 : 5; 
+            ctx.font = `${(isHover || isSelected) ? 'bold' : ''} ${fontSize}px Arial, sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            // Contour noir FIN
-            ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+            // Contour noir plus épais pour bien lire le texte par dessus le point orange
+            ctx.strokeStyle = 'rgba(0,0,0,0.9)';
             ctx.lineWidth = 0.75; 
-            ctx.strokeText(node.label, node.x, node.y);
+            ctx.strokeText(node.label, node.x, node.y); // <-- node.y (centré) au lieu de node.y + 12
             
-            // Texte Blanc
+            // Texte blanc
             ctx.fillStyle = whiteColor;
-            ctx.fillText(node.label, node.x, node.y);
+            ctx.fillText(node.label, node.x, node.y); // <-- node.y (centré)
           }
         }}
       />
