@@ -29,56 +29,53 @@ export default function ConstellationGraph({
     Record<string, { currentRadius: number; currentGap: number }>
   >({});
   
-  // NOUVEAU : Référence pour stocker le timestamp de "déblocage" de chaque node
-  // Map<NodeID, Date.now()>
   const unlockTimestamps = useRef<Map<string, number>>(new Map());
   
-  // Effet pour détecter les nouveaux déblocages
   useEffect(() => {
-    unlockedNodes.forEach(id => {
-      // Si on ne l'a pas déjà enregistré, c'est un nouveau déblocage (ou initial)
+    unlockedNodes.forEach((id: string) => {
       if (!unlockTimestamps.current.has(id)) {
-        // Pour "les-racines" (initial), on ne veut pas forcément d'anim, 
-        // ou alors une anim rapide via un délai passé.
-        // Mais pour simplifier : on marque le temps actuel.
-        // Si c'est le chargement initial de la page, Date.now() est le même pour tous,
-        // on pourrait différencier si on voulait les faire poper.
         unlockTimestamps.current.set(id, Date.now());
       }
     });
   }, [unlockedNodes]);
 
-  // Mise à jour des dimensions
+  // --- MODIFICATION ICI : Gestion du redimensionnement via ResizeObserver ---
   useEffect(() => {
     const updateDimensions = () => {
-      const newDims = {
-        w: window.innerWidth,
-        h: window.innerHeight,
-      };
-      setDimensions(newDims);
-      setIsReady(true);
+      if (containerRef.current) {
+        setDimensions({
+          w: containerRef.current.clientWidth,
+          h: containerRef.current.clientHeight,
+        });
+        setIsReady(true);
+      }
     };
 
-    // Attendre un peu pour que le DOM soit prêt
-    const timer = setTimeout(updateDimensions, 100);
+    // Initialisation
     updateDimensions();
-    window.addEventListener("resize", updateDimensions);
+
+    // Observer les changements de taille du conteneur parent
+    const resizeObserver = new ResizeObserver(() => {
+        updateDimensions();
+    });
+
+    if (containerRef.current) {
+        resizeObserver.observe(containerRef.current);
+    }
+
     return () => {
-      window.removeEventListener("resize", updateDimensions);
-      clearTimeout(timer);
+      resizeObserver.disconnect();
     };
-  }, []);
+  }, []); // Plus besoin de window "resize" listener global
 
   // Fonction pour convertir les coordonnées du graphe en coordonnées canvas
   const toCanvasCoords = (x: number, y: number) => {
-    // Échelle dynamique responsive : 
-    // - Desktop (>1000px) : 2.5
-    // - Tablette (>600px) : 1.8
-    // - Mobile : 1.2
+    // Échelle dynamique responsive
     let scale = 2.5;
     if (dimensions.w < 600) {
       scale = 1.2;
     } else if (dimensions.w < 1000) {
+      // Si on est en split screen (petit width), on réduit un peu l'échelle
       scale = 1.8;
     }
 
@@ -90,7 +87,9 @@ export default function ConstellationGraph({
     };
   };
 
-  // Fonction pour vérifier si on clique sur un node
+  // ... (Le reste des fonctions : getNodeAtPosition, handleClick, handleMouseMove restent inchangées)
+  // Je remets les fonctions pour que le fichier soit complet et fonctionnel sans erreur de copie
+
   const getNodeAtPosition = (mouseX: number, mouseY: number) => {
     for (const node of nodesData) {
       if (!node.x || !node.y) continue;
@@ -98,7 +97,6 @@ export default function ConstellationGraph({
       const distance = Math.sqrt(
         Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2),
       );
-      // Augmentation de la zone de clic (40 -> 60) pour inclure un peu plus large (notamment vers le texte)
       if (distance < 60) {
         return node.id;
       }
@@ -106,7 +104,6 @@ export default function ConstellationGraph({
     return null;
   };
 
-  // Gestion des clics
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -126,7 +123,6 @@ export default function ConstellationGraph({
     }
   };
 
-  // Gestion du hover
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -137,7 +133,6 @@ export default function ConstellationGraph({
 
     const nodeId = getNodeAtPosition(mouseX, mouseY);
 
-    // Jouer le son si on survole un NOUVEAU node débloqué
     if (nodeId && nodeId !== hoveredNode && unlockedNodes.includes(nodeId)) {
       playHover();
     }
@@ -162,40 +157,30 @@ export default function ConstellationGraph({
     let animationFrameId: number;
 
     const render = () => {
-      // Clear canvas
       ctx.clearRect(0, 0, dimensions.w, dimensions.h);
 
-      // 1. Dessiner les liens
       linksData.forEach((link) => {
         const sourceNode = nodesData.find((n) => n.id === link.source);
         const targetNode = nodesData.find((n) => n.id === link.target);
 
         if (
-          sourceNode &&
-          targetNode &&
-          sourceNode.x !== undefined &&
-          sourceNode.y !== undefined &&
-          targetNode.x !== undefined &&
-          targetNode.y !== undefined
+          sourceNode?.x !== undefined && sourceNode?.y !== undefined &&
+          targetNode?.x !== undefined && targetNode?.y !== undefined
         ) {
           const source = toCanvasCoords(sourceNode.x, sourceNode.y);
           const target = toCanvasCoords(targetNode.x, targetNode.y);
 
           const isTargetUnlocked = unlockedNodes.includes(link.target);
-
-          // Vérifier si une animation est en cours pour le target
           const unlockTime = unlockTimestamps.current.get(link.target);
           const now = Date.now();
-          let progress = 1; // Par défaut 100%
+          let progress = 1;
 
-          // Si on a un temps de déblocage, on calcule la progression
           if (unlockTime && isTargetUnlocked) {
-            const duration = 1500; // 1.5 secondes pour tracer le trait
+            const duration = 1500;
             progress = Math.min((now - unlockTime) / duration, 1);
           }
 
-          // DESSIN DU FOND (Trait grisillé ou pointillé pour tous les liens connectés)
-          // On dessine toujours le fond gris d'abord sauf pour les étoiles
+          // Fond pointillé
           if (!(link.source.startsWith("star") || link.target.startsWith("star"))) {
             ctx.beginPath();
             ctx.moveTo(source.x, source.y);
@@ -204,12 +189,11 @@ export default function ConstellationGraph({
             ctx.lineWidth = 1;
             ctx.setLineDash([5, 5]);
             ctx.stroke();
-            ctx.setLineDash([]); // Reset dash
+            ctx.setLineDash([]);
           }
 
-          // DESSIN DU TRAIT ACTIF (Par dessus)
+          // Trait actif
           if (link.source.startsWith("star") || link.target.startsWith("star")) {
-             // Traits étoiles déco
             ctx.beginPath();
             ctx.moveTo(source.x, source.y);
             ctx.lineTo(target.x, target.y);
@@ -217,7 +201,6 @@ export default function ConstellationGraph({
             ctx.lineWidth = 1;
             ctx.stroke();
           } else if (isTargetUnlocked) {
-            // Calcul du point final en fonction de la progression
             const currentX = source.x + (target.x - source.x) * progress;
             const currentY = source.y + (target.y - source.y) * progress;
 
@@ -231,7 +214,6 @@ export default function ConstellationGraph({
         }
       });
 
-      // 2. Dessiner les nodes avec interpolation
       nodesData.forEach((node) => {
         if (node.x === undefined || node.y === undefined) return;
 
@@ -241,7 +223,6 @@ export default function ConstellationGraph({
         const isHover = node.id === hoveredNode;
         const isStar = node.id.startsWith("star");
 
-        // Étoiles décoratives
         if (isStar) {
           ctx.beginPath();
           ctx.arc(x, y, 2, 0, 2 * Math.PI);
@@ -250,66 +231,40 @@ export default function ConstellationGraph({
           return;
         }
 
-        // --- GESTION DU TIMING D'APPARITION ---
         const unlockTime = unlockTimestamps.current.get(node.id);
         const now = Date.now();
         const ANIMATION_DURATION = 1500;
         
         let visualUnlocked = isUnlocked;
-        
-        // Si le node est débloqué mais que le trait n'est pas encore arrivé (1.5s), on le garde "verrouillé" visuellement
-        // Exception pour "les-racines" qui est le point de départ
         if (isUnlocked && node.id !== "les-racines" && unlockTime && (now - unlockTime < ANIMATION_DURATION)) {
           visualUnlocked = false;
         }
 
-        // --- GESTION DE L'ANIMATION DU RAYON ---
-        // Définir la taille cible
-        let targetRadius = 18; // Taille verrouillée par défaut
+        let targetRadius = 18;
         if (visualUnlocked) {
           targetRadius = isHover || isSelected ? 35 : 25;
         }
 
-        // Initialiser l'état si inexistant ou incomplet
         if (!nodeAnimState.current[node.id]) {
-          nodeAnimState.current[node.id] = {
-            currentRadius: targetRadius,
-            currentGap: 0,
-          };
+          nodeAnimState.current[node.id] = { currentRadius: targetRadius, currentGap: 0 };
         }
-        if (typeof nodeAnimState.current[node.id].currentGap === "undefined") {
-          nodeAnimState.current[node.id].currentGap = 0;
-        }
-
-        // Interpolation
+        
         const anim = nodeAnimState.current[node.id];
         anim.currentRadius += (targetRadius - anim.currentRadius) * 0.15;
-
-        // Gap
-        let targetGap = 0;
-        if (isSelected) {
-          targetGap = 15;
-        }
-        anim.currentGap += (targetGap - anim.currentGap) * 0.15;
         
-        // Snap
-        if (Math.abs(targetRadius - anim.currentRadius) < 0.1) anim.currentRadius = targetRadius;
-        if (Math.abs(targetGap - anim.currentGap) < 0.1) anim.currentGap = targetGap;
+        let targetGap = isSelected ? 15 : 0;
+        anim.currentGap += (targetGap - anim.currentGap) * 0.15;
 
         const radius = anim.currentRadius;
-        // ---------------------------------------
 
-        // Colors
         if (!visualUnlocked) {
           ctx.beginPath();
           ctx.arc(x, y, radius, 0, 2 * Math.PI);
-          // Gris foncé pour les nodes verrouillés (ou en attente du trait)
           ctx.fillStyle = "#4a5568"; 
           ctx.fill();
           return;
         }
 
-        // Effet de lueur modulable
         if (radius > 26) {
           ctx.shadowColor = "#E67E22";
           ctx.shadowBlur = (radius - 25) * 3;
@@ -319,19 +274,14 @@ export default function ConstellationGraph({
         ctx.arc(x, y, radius, 0, 2 * Math.PI);
         ctx.fillStyle = "#E67E22";
         ctx.fill();
-
         ctx.shadowBlur = 0;
 
-        // Cercle de sélection qui se détache et se fixe
         if (isSelected || anim.currentGap > 0.5) {
-          // On ajoute le gap AU-DESSUS de la taille maximale du cercle (35), sinon il est caché par le rayon actuel
-          // L'idée : Le cercle part du bord du node (radius) et s'écarte
           const gapRadius = radius + 5 + anim.currentGap;
-          
           ctx.beginPath();
           ctx.arc(x, y, gapRadius, 0, 2 * Math.PI);
           ctx.strokeStyle = "#E67E22";
-          ctx.lineWidth = 2; // Un peu plus fin pour être élégant
+          ctx.lineWidth = 2;
           ctx.stroke();
         }
       });
@@ -339,14 +289,11 @@ export default function ConstellationGraph({
       animationFrameId = requestAnimationFrame(render);
     };
 
-    // Lancer la boucle
     render();
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
+    return () => cancelAnimationFrame(animationFrameId);
   }, [dimensions, unlockedNodes, selectedNodeId, hoveredNode, isReady]);
 
+  // --- MODIFICATION ICI : Style à 100% pour remplir le conteneur variable ---
   return (
     <div
       ref={containerRef}
@@ -354,8 +301,8 @@ export default function ConstellationGraph({
         position: "absolute",
         top: 0,
         left: 0,
-        width: "100vw",
-        height: "100vh",
+        width: "100%",  // Remplace 100vw
+        height: "100%", // Remplace 100vh
       }}
     >
       <canvas
@@ -364,81 +311,46 @@ export default function ConstellationGraph({
         height={dimensions.h}
         onClick={handleClick}
         onMouseMove={handleMouseMove}
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "block",
-        }}
+        style={{ width: "100%", height: "100%", display: "block" }}
       />
-      {/* Overlay HTML pour les textes et Hitboxes */}
-      {isReady &&
-        nodesData.map((node) => {
-          if (!node.label || node.x === undefined || node.y === undefined)
-            return null;
+      {/* Overlay HTML (inchangé sauf dépendance à dimensions.w qui est auto) */}
+      {isReady && nodesData.map((node) => {
+          if (!node.label || node.x === undefined || node.y === undefined) return null;
           if (!unlockedNodes.includes(node.id)) return null;
 
           const { x, y } = toCanvasCoords(node.x, node.y);
           const isHover = node.id === hoveredNode;
           const isSelected = node.id === selectedNodeId;
-
-          // Gestion du délai d'apparition du texte
-          // Si c'est "les-racines" : immédiat
-          // Sinon : délai de 1.5s (temps du trait)
           const isImmediate = node.id === "les-racines";
           const delayStyle = isImmediate ? {} : { animation: "fadeIn 0.5s ease-out 1.5s forwards", opacity: 0 };
-          
           const isMobile = dimensions.w < 600;
           const labelFontSize = isHover || isSelected ? (isMobile ? "18px" : "24px") : (isMobile ? "14px" : "18px");
           const labelOffset = isHover || isSelected ? (isMobile ? "45px" : "55px") : (isMobile ? "30px" : "40px");
 
           return (
             <div key={node.id}>
-              {/* ZONE DE CLIC (HITBOX) TRANSPARENTE SUR LE NOEUD */}
+              {/* Hitbox */}
               <div
-                onClick={() => {
-                  playClick();
-                  onNodeSelect(node.id);
-                }}
+                onClick={() => { playClick(); onNodeSelect(node.id); }}
                 onMouseEnter={() => setHoveredNode(node.id)}
                 onMouseLeave={() => setHoveredNode(null)}
                 style={{
-                  position: "absolute",
-                  left: x,
-                  top: y,
-                  width: "80px", // Zone de clic très large et confortable
-                  height: "80px",
-                  borderRadius: "50%",
-                  transform: "translate(-50%, -50%)",
-                  cursor: "pointer",
-                  zIndex: 25, // Au-dessus du canvas
+                  position: "absolute", left: x, top: y, width: "80px", height: "80px",
+                  borderRadius: "50%", transform: "translate(-50%, -50%)", cursor: "pointer", zIndex: 25,
                 }}
               />
-
-              {/* TEXTE LABEL */}
+              {/* Label */}
               <div
-                onClick={() => {
-                  playClick();
-                  onNodeSelect(node.id);
-                }}
+                onClick={() => { playClick(); onNodeSelect(node.id); }}
                 onMouseEnter={() => setHoveredNode(node.id)}
                 onMouseLeave={() => setHoveredNode(null)}
                 style={{
-                  position: "absolute",
-                  left: x,
-                  top: y,
-                  transform: `translate(-50%, ${labelOffset})`,
-                  pointerEvents: "auto",
-                  cursor: "pointer",
+                  position: "absolute", left: x, top: y,
+                  transform: `translate(-50%, ${labelOffset})`, pointerEvents: "auto", cursor: "pointer",
                   transition: "transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), font-size 0.4s ease",
-                  color: "#F1FAEE",
-                  textShadow:
-                    "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 10px rgba(0,0,0,0.5)",
-                  fontSize: labelFontSize,
-                  fontWeight: isHover || isSelected ? "bold" : "normal",
-                  zIndex: 20,
-                  textAlign: "center",
-                  whiteSpace: "nowrap",
-                  ...delayStyle
+                  color: "#F1FAEE", textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 10px rgba(0,0,0,0.5)",
+                  fontSize: labelFontSize, fontWeight: isHover || isSelected ? "bold" : "normal",
+                  zIndex: 20, textAlign: "center", whiteSpace: "nowrap", ...delayStyle
                 }}
               >
                 {node.label}

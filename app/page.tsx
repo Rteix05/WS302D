@@ -51,29 +51,32 @@ export default function Home() {
 
   return (
     <>
-      {/* 1. Landing Page (Au-dessus de tout) */}
+      {/* 1. Landing Page */}
       <AnimatePresence>
         {!hasStarted && <LandingPage onStart={handleStartExperience} />}
       </AnimatePresence>
 
-      {/* 2. Main Experience (Toujours présente, mais floue au début) */}
+      {/* 2. Main Experience */}
       <motion.main
         className="fixed inset-0 w-screen h-screen overflow-hidden bg-[#121212]"
-        // Animation du flou et de la lumière
         initial={{ filter: "blur(10px) brightness(0.5)" }}
         animate={{ 
           filter: hasStarted ? "blur(0px) brightness(1)" : "blur(10px) brightness(0.5)" 
         }}
         transition={{ duration: 1.5, ease: "easeInOut" }}
       >
-        {/* Fond Étoilé */}
+        {/* Fond Étoilé (Reste fixe plein écran) */}
         <div className="absolute inset-0 z-0 pointer-events-none">
           <StarBackground />
         </div>
 
-        {/* La Constellation */}
+        {/* --- MODIFICATION ICI : Conteneur de la Constellation Dynamique --- */}
+        {/* On anime la largeur : w-full par défaut, mais md:w-[35vw] si un chapitre est ouvert */}
+        {/* L'utilisation de 'transition-all' permet de faire glisser le graphe en même temps que le panel s'ouvre */}
         <div
-          className="absolute inset-0 z-10"
+          className={`absolute top-0 bottom-0 left-0 z-10 transition-all duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
+            selectedChapter ? "w-full md:w-[35vw]" : "w-full"
+          }`}
           style={{ pointerEvents: hasStarted && !selectedChapter ? "auto" : "none" }}
         >
           <ConstellationGraph
@@ -81,7 +84,7 @@ export default function Home() {
             selectedNodeId={selectedChapter}
           />
 
-          {/* Titre Interne (N'apparaît que quand on a commencé) */}
+          {/* Titre Interne */}
           {hasStarted && (
             <motion.div
               className="absolute top-10 left-10 pointer-events-none z-60"
@@ -90,13 +93,14 @@ export default function Home() {
                 opacity: selectedChapter ? 0 : 1,
                 x: selectedChapter ? -50 : 0,
               }}
-              transition={{ duration: 0.8, delay: 0.5 }} // Petit délai pour laisser la transition finir
+              transition={{ duration: 0.8, delay: 0.5 }}
             >
+              {/* (Tu avais laissé le contenu vide dans ton fichier, je le laisse vide ou tu peux remettre le H1 si besoin) */}
             </motion.div>
           )}
         </div>
 
-        {/* OVERLAY FERMETURE (Clic gauche pour fermer) */}
+        {/* OVERLAY FERMETURE */}
         {selectedChapter && (
           <div
             className="absolute inset-0 z-50 cursor-pointer"
@@ -114,15 +118,16 @@ export default function Home() {
                 top: 0,
                 right: 0,
                 height: "100%",
-                maxWidth: "1000px",
+                // maxWidth retire pour laisser la largeur CSS gérer le responsive split
                 zIndex: 100,
                 backgroundColor: "#121212",
               }}
+              // Sur desktop, le panel prend 65vw, laissant 35vw pour le graphe
               className="w-full md:w-[65vw] shadow-2xl border-l border-[#457B9D]/20"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+              transition={{ type: "spring", stiffness: 260, damping: 26 }} // Animation fluide type ressort
             >
               <ChapterPanel chapterId={selectedChapter} onClose={handleClose} />
             </motion.div>
